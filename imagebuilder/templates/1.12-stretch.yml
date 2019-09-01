@@ -1,11 +1,11 @@
 ---
 {{ if eq .Cloud "aws" }}
-name: k8s-1.9-debian-{system.release}-{system.architecture}-{provider.virtualization}-ebs-{%Y}-{%m}-{%d}
+name: k8s-1.12-debian-{system.release}-{system.architecture}-{provider.virtualization}-ebs-{%Y}-{%m}-{%d}
 tags:
   Name: "Stretch 9.5"
   Debian: "9.5~{%Y}{%m}{%d}{%H}{%M}"
 {{ else }}
-name: k8s-1.9-debian-{system.release}-{system.architecture}-{%Y}-{%m}-{%d}
+name: k8s-1.12-debian-{system.release}-{system.architecture}-{%Y}-{%m}-{%d}
 {{ end }}
 provider:
 {{ if eq .Cloud "aws" }}
@@ -19,12 +19,12 @@ provider:
 {{ else }}
   name: {{ .Cloud }}
 {{ end }}
-  description: Kubernetes 1.9 Base Image - Debian {system.release} {system.architecture}
+  description: Kubernetes 1.12 Base Image - Debian {system.release} {system.architecture}
 bootstrapper:
   workspace: /target
   # tarball speeds up development, but for prod builds we want to be 100% sure...
   # tarball: true
-  # 1.9? variant: minbase
+  # todo: switch to variant: minbase
 system:
   release: stretch
   architecture: amd64
@@ -53,6 +53,9 @@ packages:
     # Important utils for administration
     # if minbase - openssh-server
 
+    # Ensure systemd scripts run on shutdown
+    - acpi-support
+
     # these packages are generally useful
     # (and are the ones from the GCE image)
     - rsync
@@ -68,7 +71,6 @@ packages:
     - htop
     - tcpdump
     - iotop
-    - ngrep
     - ethtool
     - sysstat
 
@@ -107,7 +109,6 @@ packages:
     - unattended-upgrades
     - lvm2
     - btrfs-tools
-    - dnsmasq
 
 {{ if eq .Cloud "aws" }}
     # So we can install the latest awscli
@@ -148,8 +149,8 @@ plugins:
        # - [ 'chroot', '{root}', 'apt-get', 'remove', '--yes', 'unattended-upgrades' ]
 
        # Install docker
-       - [ 'wget', 'http://download.docker.com/linux/debian/dists/stretch/pool/stable/amd64/docker-ce_17.03.2~ce-0~debian-stretch_amd64.deb', '-O', '{root}/tmp/docker.deb' ]
-       - [ '/bin/sh', '-c', 'cd {root}/tmp; echo "36773361cf44817371770cb4e6e6823590d10297  docker.deb" | shasum -c -' ]
+       - [ 'wget', 'https://download.docker.com/linux/debian/dists/stretch/pool/stable/amd64/docker-ce_18.06.3~ce~3-0~debian_amd64.deb', '-O', '{root}/tmp/docker.deb' ]
+       - [ '/bin/sh', '-c', 'cd {root}/tmp; echo "93b5a055a39462867d79109b00db1367e3d9e32f  docker.deb" | shasum -c -' ]
        - [ 'chroot', '{root}', '/bin/sh', '-c', 'DEBIAN_FRONTEND=noninteractive dpkg --install /tmp/docker.deb' ]
        - [ 'rm', '{root}/tmp/docker.deb' ]
 
@@ -161,7 +162,7 @@ plugins:
        - [ 'chroot', '{root}', 'sed', '-i', 's/^GRUB_CMDLINE_LINUX_DEFAULT=/#GRUB_CMDLINE_LINUX_DEFAULT=/g', '/etc/default/grub' ]
        - [ 'chroot', '{root}', 'sed', '-i', 's/^GRUB_TIMEOUT=/#GRUB_TIMEOUT=/g', '/etc/default/grub' ]
        - [ 'chroot', '{root}', '/bin/sh', '-c', 'echo "# kubernetes image changes" >> /etc/default/grub' ]
-       - [ 'chroot', '{root}', '/bin/sh', '-c', 'echo "GRUB_CMDLINE_LINUX_DEFAULT=\"cgroup_enable=memory oops=panic panic=10 console=ttyS0 nvme_core.io_timeout=255\"" >> /etc/default/grub' ]
+       - [ 'chroot', '{root}', '/bin/sh', '-c', 'echo "GRUB_CMDLINE_LINUX_DEFAULT=\"cgroup_enable=memory oops=panic panic=10 console=ttyS0 intel_idle.max_cstate=1 nvme_core.io_timeout=255\"" >> /etc/default/grub' ]
        - [ 'chroot', '{root}', '/bin/sh', '-c', 'echo "GRUB_TIMEOUT=0" >> /etc/default/grub' ]
        - [ 'chroot', '{root}', 'update-grub2' ]
 
@@ -190,11 +191,3 @@ plugins:
        # From /usr/share/doc/systemd/README.Debian
        - [ 'chroot', '{root}', 'install', '-d', '-g', 'systemd-journal', '/var/log/journal' ]
        - [ 'chroot', '{root}', 'setfacl', '-R', '-nm', 'g:adm:rx,d:g:adm:rx', '/var/log/journal' ]
-       
-       # Add loopback interface for dnsmasq
-       - [ 'wget', 'https://raw.githubusercontent.com/Oxalide/kops-ami-build-scripts/master/dnsmasq.sh', '-O', '{root}/tmp/dnsmasq.sh',  ]
-       #- [ 'chroot', '{root}', '/bin/sh', './image_config/dnsmasq.sh' ]
-
-         # Disable IPv6
-       - [ 'wget', 'https://raw.githubusercontent.com/Oxalide/kops-ami-build-scripts/master/disable-ipv6.sh', '-O', '{root}/tmp/disable-ipv6.sh',  ]
-       #- [ 'chroot', '{root}', '/bin/sh', './image_config/disable-ipv6.sh' ]

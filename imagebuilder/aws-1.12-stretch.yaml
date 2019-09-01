@@ -1,8 +1,8 @@
 Cloud: aws
-TemplatePath: templates/1.11-stretch.yml
+TemplatePath: templates/1.12-stretch.yml
 Tags:
   k8s.io/kernel: "4.9"
-  k8s.io/version: "1.11"
+  k8s.io/version: "1.12"
   k8s.io/family: "default"
   k8s.io/distro: "debian"
   k8s.io/ssh-user: "admin"
